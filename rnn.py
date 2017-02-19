@@ -6,6 +6,7 @@ from keras.layers import Dense, LSTM, Dropout, Bidirectional, Activation
 from keras.layers.embeddings import Embedding
 from keras.preprocessing import sequence
 from keras.utils.data_utils import get_file
+from keras.callbacks import EarlyStopping, TensorBoard
 import numpy
 from sklearn.metrics import confusion_matrix
 
@@ -19,7 +20,6 @@ sorted_data = data.sort_values(['clicks'])
 
 rows = len(sorted_data)
 
-epochs = 10
 ratio = 10
 tops = sorted_data[(rows - rows // ratio):]
 bottoms = sorted_data[:(rows // ratio)]
@@ -27,7 +27,25 @@ bottoms = sorted_data[:(rows // ratio)]
 tops['label'] = 1
 bottoms['label'] = 0
 
-labeled_data = pandas.concat([tops, bottoms])
+shuffled_tops = tops.sample(frac=1)
+shuffled_bottoms = bottoms.sample(frac=1)
+
+test_index = len(tops) - len(tops) // 5
+val_index = test_index - test_index // 5
+
+train_top = shuffled_tops[:val_index]
+val_top = shuffled_tops[val_index:test_index]
+test_top = shuffled_tops[test_index:]
+
+train_bottom = shuffled_bottoms[:val_index]
+val_bottom = shuffled_bottoms[val_index:test_index]
+test_bottom = shuffled_bottoms[test_index:]
+
+test_data = pandas.concat([test_top, test_bottom])
+val_data = pandas.concat([val_top, val_bottom])
+train_data = pandas.concat([train_top, train_bottom])
+
+labeled_data = pandas.concat([test_data, train_data, val_data])
 
 titles = labeled_data['title']
 labels = labeled_data['label']
@@ -46,48 +64,57 @@ indices_char = dict((i, c) for i, c in enumerate(chars))
 
 title_max_len = 128
 
-X = []
-y = numpy.array(labels)
+X_train = []
+X_val = []
+X_test = []
+y_train = numpy.array(train_data['label'])
+y_val = numpy.array(val_data['label'])
+y_test = numpy.array(test_data['label'])
 
-for i, title in enumerate(titles):
-    X.append([])
+for i, title in enumerate(val_data['title']):
+    X_val.append([])
     for j, char in enumerate(title[-title_max_len:]):
-        X[i].append(char_indices[char])
+        X_val[i].append(char_indices[char])
 
-X = sequence.pad_sequences(X, maxlen=title_max_len)
+for i, title in enumerate(train_data['title']):
+    X_train.append([])
+    for j, char in enumerate(title[-title_max_len:]):
+        X_train[i].append(char_indices[char])
 
-ids = numpy.arange(len(X))
-numpy.random.shuffle(ids)
+for i, title in enumerate(test_data['title']):
+    X_test.append([])
+    for j, char in enumerate(title[-title_max_len:]):
+        X_test[i].append(char_indices[char])
 
-# shuffle
-X = X[ids]
-y = y[ids]
+X_train = sequence.pad_sequences(X_train, maxlen=title_max_len)
+X_val = sequence.pad_sequences(X_val, maxlen=title_max_len)
+X_test = sequence.pad_sequences(X_test, maxlen=title_max_len)
 
-data_set_count = len(X) // 1
-test_set_count = data_set_count // 5
-test_set_start_index = data_set_count - test_set_count
-
-X_train = X[:test_set_start_index]
-X_test = X[test_set_start_index:data_set_count]
-
-y_train = y[:test_set_start_index]
-y_test = y[test_set_start_index:data_set_count]
 print("Training data positive labels: %.2f%%" % (sum(y_train) / len(y_train) * 100))
+print("Validation data positive labels: %.2f%%" % (sum(y_val) / len(y_val) * 100))
 print("Testing data positive labels: %.2f%%" % (sum(y_test) / len(y_test) * 100))
 
 model = Sequential()
 model.add(Embedding(len(chars), 1, input_length=title_max_len))
 model.add(LSTM(10))
+model.add(Dropout(0.1))
 model.add(Dense(1, activation='sigmoid'))
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 print(model.summary())
 
-history_callback = model.fit(X_train, y_train, nb_epoch=epochs)
+epochs = 100
+early_stopping = EarlyStopping(monitor='val_loss', patience=1)
+history_callback = model.fit(X_train, y_train,
+                             nb_epoch=epochs,
+                             batch_size=32,
+                             shuffle=True,
+                             validation_data=(X_val, y_val),
+                             callbacks=[early_stopping, TensorBoard(log_dir='/tmp/rnn')])
 scores = model.evaluate(X_test, y_test, verbose=0)
 print("Accuracy: %.2f%%" % (scores[1]*100))
 
 y_predict = model.predict_classes(X_test)
 conf_matrix = confusion_matrix(y_test, y_predict)
-print("Confusion matrix: ")
+print("\nConfusion matrix: ")
 print(conf_matrix)
