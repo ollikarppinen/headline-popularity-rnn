@@ -15,12 +15,12 @@ def fetch_csv():
     csv['title'] = csv['title'].str.lower()
     return csv
 
-data = fetch_csv()
+data = fetch_csv().drop_duplicates('title')
 sorted_data = data.sort_values(['clicks'])
 
 rows = len(sorted_data)
 
-ratio = 10
+ratio = 5
 tops = sorted_data[(rows - rows // ratio):]
 bottoms = sorted_data[:(rows // ratio)]
 
@@ -50,7 +50,7 @@ labeled_data = pandas.concat([test_data, train_data, val_data])
 titles = labeled_data['title']
 labels = labeled_data['label']
 
-chars = {None: 0}
+chars = {}#{None: 0}
 
 for title in titles:
     for char in title:
@@ -59,36 +59,30 @@ for title in titles:
         else:
             chars[char] = 1
 
+char_count_threshold = 100
+chars = {k: v for k, v in chars.items() if v > char_count_threshold }
+
 char_indices = dict((c, i) for i, c in enumerate(chars))
 indices_char = dict((i, c) for i, c in enumerate(chars))
 
 title_max_len = 128
 
-X_train = []
-X_val = []
-X_test = []
+def strings_to_indices(strings, char_indices, max_len):
+    X = []
+    for i, string in enumerate(strings):
+        X.append([])
+        for j, char in enumerate(string[-max_len:]):
+            if char in char_indices:
+                X[i].append(char_indices[char])
+    padded_X = sequence.pad_sequences(X, maxlen=max_len)
+    return padded_X
+
+X_train = strings_to_indices(train_data['title'], char_indices, title_max_len)
+X_val = strings_to_indices(val_data['title'], char_indices, title_max_len)
+X_test = strings_to_indices(test_data['title'], char_indices, title_max_len)
 y_train = numpy.array(train_data['label'])
 y_val = numpy.array(val_data['label'])
 y_test = numpy.array(test_data['label'])
-
-for i, title in enumerate(val_data['title']):
-    X_val.append([])
-    for j, char in enumerate(title[-title_max_len:]):
-        X_val[i].append(char_indices[char])
-
-for i, title in enumerate(train_data['title']):
-    X_train.append([])
-    for j, char in enumerate(title[-title_max_len:]):
-        X_train[i].append(char_indices[char])
-
-for i, title in enumerate(test_data['title']):
-    X_test.append([])
-    for j, char in enumerate(title[-title_max_len:]):
-        X_test[i].append(char_indices[char])
-
-X_train = sequence.pad_sequences(X_train, maxlen=title_max_len)
-X_val = sequence.pad_sequences(X_val, maxlen=title_max_len)
-X_test = sequence.pad_sequences(X_test, maxlen=title_max_len)
 
 print("Training data positive labels: %.2f%%" % (sum(y_train) / len(y_train) * 100))
 print("Validation data positive labels: %.2f%%" % (sum(y_val) / len(y_val) * 100))
@@ -96,8 +90,8 @@ print("Testing data positive labels: %.2f%%" % (sum(y_test) / len(y_test) * 100)
 
 model = Sequential()
 model.add(Embedding(len(chars), 1, input_length=title_max_len))
-model.add(LSTM(10))
-model.add(Dropout(0.1))
+model.add(LSTM(100))
+
 model.add(Dense(1, activation='sigmoid'))
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
@@ -111,6 +105,7 @@ history_callback = model.fit(X_train, y_train,
                              shuffle=True,
                              validation_data=(X_val, y_val),
                              callbacks=[early_stopping, TensorBoard(log_dir='/tmp/rnn')])
+
 scores = model.evaluate(X_test, y_test, verbose=0)
 print("Accuracy: %.2f%%" % (scores[1]*100))
 
