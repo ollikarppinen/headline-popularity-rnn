@@ -6,9 +6,11 @@ from keras.layers import Dense, LSTM, Dropout, Bidirectional, Activation
 from keras.layers.embeddings import Embedding
 from keras.preprocessing import sequence
 from keras.utils.data_utils import get_file
-from keras.callbacks import EarlyStopping, TensorBoard
+from keras.callbacks import EarlyStopping, TensorBoard, ModelCheckpoint
 import numpy
 from sklearn.metrics import confusion_matrix
+import sys
+import os
 
 def fetch_csv():
     csv = pandas.read_csv("http://207.154.192.240/ampparit/ampparit.csv")
@@ -50,7 +52,7 @@ labeled_data = pandas.concat([test_data, train_data, val_data])
 titles = labeled_data['title']
 labels = labeled_data['label']
 
-chars = {}#{None: 0}
+chars = {}
 
 for title in titles:
     for char in title:
@@ -61,9 +63,10 @@ for title in titles:
 
 char_count_threshold = 100
 chars = {k: v for k, v in chars.items() if v > char_count_threshold }
+print('total chars:', len(chars))
 
-char_indices = dict((c, i) for i, c in enumerate(chars))
-indices_char = dict((i, c) for i, c in enumerate(chars))
+char_indices = dict((c, i + 1) for i, c in enumerate(chars))
+indices_char = dict((i + 1, c) for i, c in enumerate(chars))
 
 title_max_len = 128
 
@@ -87,24 +90,36 @@ y_test = numpy.array(test_data['label'])
 print("Training data positive labels: %.2f%%" % (sum(y_train) / len(y_train) * 100))
 print("Validation data positive labels: %.2f%%" % (sum(y_val) / len(y_val) * 100))
 print("Testing data positive labels: %.2f%%" % (sum(y_test) / len(y_test) * 100))
+print('Sample chars in X:{}'.format(X_train[12]))
+print('y:{}'.format(y_train[12]))
 
 model = Sequential()
-model.add(Embedding(len(chars), 1, input_length=title_max_len))
-model.add(LSTM(100))
-
+model.add(Embedding(len(chars) + 1, 1, input_length=title_max_len))
+model.add(LSTM(20))
+model.add(Dropout(0.1))
 model.add(Dense(1, activation='sigmoid'))
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 print(model.summary())
 
-epochs = 100
+file_name = os.path.basename(sys.argv[0]).split('.')[0]
+checkpointer = ModelCheckpoint(
+    'checkpoints/'+file_name+'.{epoch:02d}-{val_loss:.2f}.hdf5',
+    monitor='val_loss',
+    verbose=0,
+    save_best_only=True,
+    mode='min'
+)
 early_stopping = EarlyStopping(monitor='val_loss', patience=1)
-history_callback = model.fit(X_train, y_train,
-                             nb_epoch=epochs,
-                             batch_size=32,
-                             shuffle=True,
-                             validation_data=(X_val, y_val),
-                             callbacks=[early_stopping, TensorBoard(log_dir='/tmp/rnn')])
+model.fit(
+    X_train,
+    y_train,
+    nb_epoch=100,
+    batch_size=32,
+    shuffle=True,
+    validation_data=(X_val, y_val),
+    callbacks=[early_stopping, TensorBoard(log_dir='/tmp/rnn'), checkpointer]
+)
 
 scores = model.evaluate(X_test, y_test, verbose=0)
 print("Accuracy: %.2f%%" % (scores[1]*100))
