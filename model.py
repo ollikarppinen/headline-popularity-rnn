@@ -16,7 +16,7 @@ from keras.optimizers import RMSprop
 from sklearn.metrics import confusion_matrix
 from datetime import datetime
 from math import floor
-import matplotlib.pyplot as plt
+import util
 
 def fetch_csv():
     csv = pandas.read_csv("http://207.154.192.240/ampparit/ampparit.csv")
@@ -28,7 +28,7 @@ sorted_data = data.sort_values(['clicks'])
 
 rows = len(sorted_data)
 
-ratio = 0.01
+ratio = 0.25
 tops = sorted_data[floor(rows - rows * ratio):]
 bottoms = sorted_data[:floor(rows * ratio)]
 
@@ -102,17 +102,13 @@ print('y:{}'.format(y_train[12]))
 # the model
 model = Sequential()
 model.add(Embedding(len(chars) + 1, 1, input_length=title_max_len))
-# model.add(Convolution1D(128, activation='relu', filter_length=128))
-# model.add(Convolution1D(128, activation='relu', filter_length=128))
-# model.add(Convolution1D(128, activation='relu', filter_length=128))
-# model.add(MaxPooling1D(64))
-model.add(LSTM(64, return_sequences=True))
-# model.add(Dropout(0.5))
-# model.add(LSTM(64, return_sequences=True))
-# model.add(Dropout(0.5))
-model.add(LSTM(64))
-# model.add(Dropout(0.5))
-model.add(Dense(2, activation='relu'))
+model.add(LSTM(128, return_sequences=True))
+model.add(Dropout(0.5))
+model.add(LSTM(128, return_sequences=True))
+model.add(Dropout(0.5))
+model.add(LSTM(128))
+model.add(Dropout(0.5))
+model.add(Dense(2, activation='sigmoid'))
 model.add(Dense(1, activation='sigmoid'))
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 print(model.summary())
@@ -160,7 +156,7 @@ batch_history = LossHistory()
 epoch_history = model.fit(
     X_train,
     y_train,
-    nb_epoch=10,
+    nb_epoch=100,
     batch_size=32,
     shuffle=True,
     validation_data=(X_val, y_val),
@@ -179,47 +175,9 @@ print(conf_matrix)
 layer = model.layers[-2]
 f = K.function([model.layers[0].input, K.learning_phase()],
                [layer.output])
-plot_data = pandas.DataFrame(f([X_val, 0])[0])
-x = plot_data[0]
-y = plot_data[1]
-c = model.predict(X_val)
-# dense layer scatter plot
-plt.scatter(x,y,c=c,s=1, cmap='cool')
-plt.savefig(os.path.join(model_dir, 'scatter.png'))
-plt.clf()
-# dense layer histogram
-plt.hist2d(x,y,bins=200)
-plt.savefig(os.path.join(model_dir, 'hist.png'))
-plt.clf()
-# accuracy history
-plt.plot(epoch_history.history['acc'])
-plt.plot(epoch_history.history['val_acc'])
-plt.title('model epoch accuracy')
-plt.ylabel('accuracy')
-plt.xlabel('epoch')
-plt.legend(['train', 'validation'], loc='upper left')
-plt.savefig(os.path.join(model_dir, 'epoch_accuracy.png'))
-plt.clf()
-# loss history
-plt.plot(epoch_history.history['loss'])
-plt.plot(epoch_history.history['val_loss'])
-plt.title('model epoch loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train', 'validation'], loc='upper left')
-plt.savefig(os.path.join(model_dir, 'epoch_loss.png'))
-# batch testing accuracy history
-plt.plot(batch_history.accs)
-plt.title('model batch accuracy')
-plt.ylabel('accuracy')
-plt.xlabel('batch')
-plt.legend(['train'], loc='upper left')
-plt.savefig(os.path.join(model_dir, 'batch_accuracy.png'))
-plt.clf()
-# batch testing loss history
-plt.plot(batch_history.losses)
-plt.title('model batch loss')
-plt.ylabel('loss')
-plt.xlabel('batch')
-plt.legend(['train'], loc='upper left')
-plt.savefig(os.path.join(model_dir, 'batch_loss.png'))
+dense_layer_data = pandas.DataFrame(f([X_val, 0])[0])
+dense_layer_data[3] = model.predict(X_val)
+
+util.plot.dense_layer(dense_layer_data, model_dir)
+util.plot.epochs(epoch_history, model_dir)
+util.plot.batches(batch_history, model_dir)
