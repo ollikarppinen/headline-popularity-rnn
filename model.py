@@ -29,10 +29,10 @@ data = util.fetch.csv()
 data['title'] = data['title'].str.lower()
 data = util.fetch.csv().drop_duplicates('title').sort_values(['clicks'])
 
-rows = len(sorted_data)
+rows = len(data)
 
-tops = sorted_data[floor(rows - rows * settings['ratio']):]
-bottoms = sorted_data[:floor(rows * settings['ratio'])]
+tops = data[floor(rows - rows * settings['ratio']):]
+bottoms = data[:floor(rows * settings['ratio'])]
 
 tops['label'] = 1
 bottoms['label'] = 0
