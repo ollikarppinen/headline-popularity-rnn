@@ -25,13 +25,9 @@ settings = {
     'epochs': 2
 }
 
-def fetch_csv():
-    csv = pandas.read_csv("http://207.154.192.240/ampparit/ampparit.csv")
-    csv['title'] = csv['title'].str.lower()
-    return csv
-
-data = fetch_csv().drop_duplicates('title')
-sorted_data = data.sort_values(['clicks'])
+data = util.fetch.csv()
+data['title'] = data['title'].str.lower()
+data = util.fetch.csv().drop_duplicates('title').sort_values(['clicks'])
 
 rows = len(sorted_data)
 
