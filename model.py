@@ -18,6 +18,13 @@ from datetime import datetime
 from math import floor
 import util
 
+settings = {
+    'ratio': 0.5,
+    'title_max_len': 128,
+    'batch_size' : 100,
+    'epochs': 2
+}
+
 def fetch_csv():
     csv = pandas.read_csv("http://207.154.192.240/ampparit/ampparit.csv")
     csv['title'] = csv['title'].str.lower()
@@ -28,9 +35,8 @@ sorted_data = data.sort_values(['clicks'])
 
 rows = len(sorted_data)
 
-ratio = 0.25
-tops = sorted_data[floor(rows - rows * ratio):]
-bottoms = sorted_data[:floor(rows * ratio)]
+tops = sorted_data[floor(rows - rows * settings['ratio']):]
+bottoms = sorted_data[:floor(rows * settings['ratio'])]
 
 tops['label'] = 1
 bottoms['label'] = 0
@@ -73,7 +79,7 @@ print('total chars:', max_features)
 char_indices = dict((c, i + 1) for i, c in enumerate(chars))
 indices_char = dict((i + 1, c) for i, c in enumerate(chars))
 
-title_max_len = 128
+settings['title_max_len'] = 128
 
 # strings to indices
 def strings_to_indices(strings, char_indices, max_len):
@@ -85,9 +91,9 @@ def strings_to_indices(strings, char_indices, max_len):
                 X[i].append(char_indices[char])
     padded_X = sequence.pad_sequences(X, maxlen=max_len)
     return padded_X
-X_train = strings_to_indices(train_data['title'], char_indices, title_max_len)
-X_val = strings_to_indices(val_data['title'], char_indices, title_max_len)
-X_test = strings_to_indices(test_data['title'], char_indices, title_max_len)
+X_train = strings_to_indices(train_data['title'], char_indices, settings['title_max_len'])
+X_val = strings_to_indices(val_data['title'], char_indices, settings['title_max_len'])
+X_test = strings_to_indices(test_data['title'], char_indices, settings['title_max_len'])
 y_train = numpy.array(train_data['label'])
 y_val = numpy.array(val_data['label'])
 y_test = numpy.array(test_data['label'])
@@ -101,13 +107,12 @@ print('y:{}'.format(y_train[12]))
 
 # the model
 model = Sequential()
-model.add(Embedding(len(chars) + 1, 1, input_length=title_max_len))
+model.add(Embedding(len(chars) + 1, 1, input_length=settings['title_max_len']))
 model.add(LSTM(128, return_sequences=True))
 model.add(Dropout(0.5))
 model.add(LSTM(128, return_sequences=True))
 model.add(Dropout(0.5))
 model.add(LSTM(128))
-model.add(Dropout(0.5))
 model.add(Dense(2, activation='sigmoid'))
 model.add(Dense(1, activation='sigmoid'))
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -156,8 +161,8 @@ batch_history = LossHistory()
 epoch_history = model.fit(
     X_train,
     y_train,
-    nb_epoch=100,
-    batch_size=32,
+    nb_epoch=settings['epochs'],
+    batch_size=settings['batch_size'],
     shuffle=True,
     validation_data=(X_val, y_val),
     callbacks=[checkpointer, batch_history]#, early_stopping, TensorBoard(log_dir='/tmp/rnn'), , reduce_lr]
