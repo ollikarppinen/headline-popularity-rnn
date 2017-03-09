@@ -19,10 +19,11 @@ from math import floor
 import util
 
 settings = {
-    'ratio': 0.5,
+    'ratio': 0.01,
     'title_max_len': 128,
     'batch_size' : 100,
-    'epochs': 2
+    'epochs': 2,
+    'char_count_threshold': 1000
 }
 
 data = util.fetch.csv()
@@ -66,10 +67,10 @@ for title in titles:
     for char in title:
         if char in chars:
             chars[char] += 1
-        elif char.isalpha() or char == ' ' or char.isdigit():
+        # elif char.isalpha() or char == ' ' or char.isdigit():
+        else:
             chars[char] = 1
-char_count_threshold = 1
-chars = {k: v for k, v in chars.items() if v > char_count_threshold }
+chars = {k: v for k, v in chars.items() if v > settings['char_count_threshold'] }
 max_features = len(chars)
 print('total chars:', max_features)
 char_indices = dict((c, i + 1) for i, c in enumerate(chars))
