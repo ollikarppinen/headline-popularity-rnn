@@ -19,11 +19,11 @@ from math import floor
 import util
 
 settings = {
-    'ratio': 0.01,
+    'ratio': 0.1,
     'title_max_len': 128,
-    'batch_size' : 100,
-    'epochs': 2,
-    'char_count_threshold': 1000
+    'batch_size': 32,
+    'epochs': 10,
+    'char_count_threshold': 100
 }
 
 data = util.fetch.csv()
@@ -105,12 +105,19 @@ print('y:{}'.format(y_train[12]))
 # the model
 model = Sequential()
 model.add(Embedding(len(chars) + 1, 1, input_length=settings['title_max_len']))
-model.add(LSTM(128, return_sequences=True))
-model.add(Dropout(0.5))
-model.add(LSTM(128, return_sequences=True))
-model.add(Dropout(0.5))
-model.add(LSTM(128))
-model.add(Dense(2, activation='sigmoid'))
+model.add(Bidirectional(LSTM(16, return_sequences=True)))
+model.add(Dropout(0.2))
+model.add(Bidirectional(LSTM(16, return_sequences=True)))
+model.add(Dropout(0.2))
+model.add(Bidirectional(LSTM(16, return_sequences=True)))
+model.add(Dropout(0.2))
+model.add(Bidirectional(LSTM(16, return_sequences=True)))
+model.add(Dropout(0.2))
+model.add(Bidirectional(LSTM(16, return_sequences=True)))
+model.add(Dropout(0.2))
+model.add(Bidirectional(LSTM(16)))
+model.add(Dropout(0.2))
+# model.add(Dense(2, activation='sigmoid'))
 model.add(Dense(1, activation='sigmoid'))
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 print(model.summary())
@@ -162,7 +169,7 @@ epoch_history = model.fit(
     batch_size=settings['batch_size'],
     shuffle=True,
     validation_data=(X_val, y_val),
-    callbacks=[checkpointer, batch_history]#, early_stopping, TensorBoard(log_dir='/tmp/rnn'), , reduce_lr]
+    callbacks=[checkpointer, batch_history, TensorBoard(log_dir='/tmp/rnn/' + date_string)]
 )
 scores = model.evaluate(X_test, y_test, verbose=0)
 print("Accuracy: %.2f%%" % (scores[1]*100))
@@ -174,12 +181,12 @@ print("\nConfusion matrix: ")
 print(conf_matrix)
 
 # plot model
-layer = model.layers[-2]
-f = K.function([model.layers[0].input, K.learning_phase()],
-               [layer.output])
-dense_layer_data = pandas.DataFrame(f([X_val, 0])[0])
-dense_layer_data[3] = model.predict(X_val)
+#layer = model.layers[-2]
+#f = K.function([model.layers[0].input, K.learning_phase()],
+#               [layer.output])
+#dense_layer_data = pandas.DataFrame(f([X_val, 0])[0])
+#dense_layer_data[3] = model.predict(X_val)
 
-util.plot.dense_layer(dense_layer_data, model_dir)
+#util.plot.dense_layer(dense_layer_data, model_dir)
 util.plot.epochs(epoch_history, model_dir)
 util.plot.batches(batch_history, model_dir)
