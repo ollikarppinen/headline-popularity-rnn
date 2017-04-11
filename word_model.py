@@ -25,10 +25,10 @@ import json
 ################### HYPERPARAMS ##########################
 
 settings = {
-    'ratio': 0.2,
+    'ratio': 0.01,
     'title_max_len': 16,
     'batch_size': 64,
-    'epochs': 10,
+    'epochs': 1,
     'word_min_count': 20,
     'lstm': 16,
     'dropout': 0.5,
@@ -105,7 +105,7 @@ def titles_to_indices(titles, word_indices, max_len):
             if word in word_indices:
                 X[i].append(word_indices[word])
     padded_X = sequence.pad_sequences(X, maxlen=max_len)
-    return padded_X
+    return padded_X.tolist()
 
 #################### SET SPLITTING ##########################
 
@@ -144,20 +144,20 @@ labels = labeled_data['label']
 
 ####################### SET PROCESSING ###################
 
-X_train = titles_to_indices(train_data['stemmed_title'], word_indices, settings['title_max_len'])
-X_val = titles_to_indices(val_data['stemmed_title'], word_indices, settings['title_max_len'])
-X_test = titles_to_indices(test_data['stemmed_title'], word_indices, settings['title_max_len'])
-y_train = np.array(train_data['label'])
-y_val = np.array(val_data['label'])
-y_test = np.array(test_data['label'])
+train_data['x'] = titles_to_indices(train_data['stemmed_title'], word_indices, settings['title_max_len'])
+val_data['x'] = titles_to_indices(val_data['stemmed_title'], word_indices, settings['title_max_len'])
+test_data['x'] = titles_to_indices(test_data['stemmed_title'], word_indices, settings['title_max_len'])
+train_data['y'] = np.array(train_data['label'])
+val_data['y'] = np.array(val_data['label'])
+test_data['y'] = np.array(test_data['label'])
 
 ######################### DATASET VALIDATION ###################################
 
-print("Training data positive labels: %.2f%%" % (sum(y_train) / len(y_train) * 100))
-print("Validation data positive labels: %.2f%%" % (sum(y_val) / len(y_val) * 100))
-print("Testing data positive labels: %.2f%%" % (sum(y_test) / len(y_test) * 100))
-print('Sample chars in X:{}'.format(X_train[12]))
-print('y:{}'.format(y_train[12]))
+print("Training data positive labels: %.2f%%" % (sum(train_data.y) / len(train_data.y) * 100))
+print("Validation data positive labels: %.2f%%" % (sum(val_data.y) / len(val_data.y) * 100))
+print("Testing data positive labels: %.2f%%" % (sum(test_data.y) / len(test_data.y) * 100))
+print('Sample chars in X:{}'.format(train_data.x.tolist()[12]))
+print('y:{}'.format(train_data.y.tolist()[12]))
 
 ######################### MODEL ############################
 
@@ -196,20 +196,20 @@ batch_history = LossHistory()
 
 # Fitting
 epoch_history = model.fit(
-    X_train,
-    y_train,
+    train_data.x.tolist(),
+    train_data.y.tolist(),
     nb_epoch=settings['epochs'],
     batch_size=settings['batch_size'],
     shuffle=True,
-    validation_data=(X_val, y_val),
+    validation_data=(val_data.x.tolist(), val_data.y.tolist()),
     callbacks=[checkpointer, batch_history, TensorBoard(log_dir=os.path.join(tensorboard_dir, date_string)), early_stopping]
 )
-scores = model.evaluate(X_test, y_test, verbose=0)
+scores = model.evaluate(test_data.x.tolist(), test_data.y.tolist(), verbose=0)
 print("Accuracy: %.2f%%" % (scores[1]*100))
 
 # Confusion matrix
-y_predict = model.predict_classes(X_test)
-conf_matrix = confusion_matrix(y_test, y_predict)
+y_predict = model.predict_classes(test_data.x.tolist())
+conf_matrix = confusion_matrix(test_data.y.tolist(), y_predict)
 print("\nConfusion matrix: ")
 print(conf_matrix)
 

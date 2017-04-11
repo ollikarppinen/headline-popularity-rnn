@@ -28,7 +28,7 @@ settings = {
     'ratio': 0.01,
     'title_max_len': 128,
     'batch_size': 64,
-    'epochs': 100,
+    'epochs': 2,
     'char_count_threshold': 100,
     'lstm': 8,
     'embedding': 8,
@@ -90,9 +90,9 @@ train_bottom = shuffled_bottoms[:test_index]
 val_bottom = shuffled_bottoms[test_index:val_index]
 test_bottom = shuffled_bottoms[val_index:]
 
-test_data = pd.concat([test_top, test_bottom])
-val_data = pd.concat([val_top, val_bottom])
-train_data = pd.concat([train_top, train_bottom])
+test_data = pd.concat([test_top, test_bottom]).reset_index()
+val_data = pd.concat([val_top, val_bottom]).reset_index()
+train_data = pd.concat([train_top, train_bottom]).reset_index()
 
 labeled_data = pd.concat([test_data, train_data, val_data])
 
@@ -114,8 +114,6 @@ print('total chars:', max_features)
 char_indices = dict((c, i + 1) for i, c in enumerate(chars))
 indices_char = dict((i + 1, c) for i, c in enumerate(chars))
 
-settings['title_max_len'] = 128
-
 # strings to indices
 def strings_to_indices(strings, char_indices, max_len):
     X = []
@@ -125,20 +123,21 @@ def strings_to_indices(strings, char_indices, max_len):
             if char in char_indices:
                 X[i].append(char_indices[char])
     padded_X = sequence.pad_sequences(X, maxlen=max_len)
-    return padded_X
-X_train = strings_to_indices(train_data['title'], char_indices, settings['title_max_len'])
-X_val = strings_to_indices(val_data['title'], char_indices, settings['title_max_len'])
-X_test = strings_to_indices(test_data['title'], char_indices, settings['title_max_len'])
-y_train = np.array(train_data['label'])
-y_val = np.array(val_data['label'])
-y_test = np.array(test_data['label'])
+    return padded_X.tolist()
+
+train_data['x'] = strings_to_indices(train_data['title'], char_indices, settings['title_max_len'])
+train_data['y'] = np.array(train_data['label'])
+val_data['x'] = strings_to_indices(val_data['title'], char_indices, settings['title_max_len'])
+val_data['y'] = np.array(val_data['label'])
+test_data['x'] = strings_to_indices(test_data['title'], char_indices, settings['title_max_len'])
+test_data['y'] = np.array(test_data['label'])
 
 # Data set validation
-print("Training data positive labels: %.2f%%" % (sum(y_train) / len(y_train) * 100))
-print("Validation data positive labels: %.2f%%" % (sum(y_val) / len(y_val) * 100))
-print("Testing data positive labels: %.2f%%" % (sum(y_test) / len(y_test) * 100))
-print('Sample chars in X:{}'.format(X_train[12]))
-print('y:{}'.format(y_train[12]))
+print("Training data positive labels: %.2f%%" % (sum(train_data['y']) / len(train_data['y']) * 100))
+print("Validation data positive labels: %.2f%%" % (sum(val_data['y']) / len(val_data['y']) * 100))
+print("Testing data positive labels: %.2f%%" % (sum(test_data['y']) / len(test_data['y']) * 100))
+print('Sample chars in X:{}'.format(train_data['x'][12]))
+print('y:{}'.format(train_data['y'][12]))
 
 # the model
 model = Sequential()
@@ -176,20 +175,20 @@ batch_history = LossHistory()
 
 # Fitting
 epoch_history = model.fit(
-    X_train,
-    y_train,
+    train_data['x'].tolist(),
+    train_data['y'].tolist(),
     nb_epoch=settings['epochs'],
     batch_size=settings['batch_size'],
     shuffle=True,
-    validation_data=(X_val, y_val),
+    validation_data=(val_data['x'].tolist(), val_data['y'].tolist()),
     callbacks=[checkpointer, batch_history, TensorBoard(log_dir=os.path.join(tensorboard_dir, date_string)), early_stopping]
 )
-scores = model.evaluate(X_test, y_test, verbose=0)
+scores = model.evaluate(test_data['x'].tolist(), test_data['y'].tolist(), verbose=0)
 print("Accuracy: %.2f%%" % (scores[1]*100))
 
 # Confusion matrix
-y_predict = model.predict_classes(X_test)
-conf_matrix = confusion_matrix(y_test, y_predict)
+test_data['prediction'] = model.predict_classes(test_data['x'].tolist())
+conf_matrix = confusion_matrix(test_data['y'].tolist(), test_data['prediction'].tolist())
 print("\nConfusion matrix: ")
 print(conf_matrix)
 
