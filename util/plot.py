@@ -25,7 +25,7 @@ def epochs(epoch_history, path):
     plt.title('mallin tarkkuus')
     plt.ylabel('tarkkuus')
     plt.xlabel('epookki')
-    plt.legend(['train', 'validation'], loc='upper left')
+    plt.legend(['koulutus', 'validointi'], loc='upper left')
     plt.savefig(os.path.join(path, 'epoch_accuracy.pdf'))
     plt.clf()
     # loss history
@@ -34,7 +34,7 @@ def epochs(epoch_history, path):
     plt.title('mallin virhe')
     plt.ylabel('virhe')
     plt.xlabel('epookki')
-    plt.legend(['train', 'validation'], loc='upper left')
+    plt.legend(['koulutus', 'validointi'], loc='upper left')
     plt.savefig(os.path.join(path, 'epoch_loss.pdf'))
     plt.clf()
 
@@ -48,7 +48,7 @@ def batches(batch_history, path):
     plt.title('mallin tarkkuus')
     plt.ylabel('tarkkuus')
     plt.xlabel('erä')
-    plt.legend(['train'], loc='upper left')
+    plt.legend(['koulutus'], loc='upper left')
     plt.savefig(os.path.join(path, 'batch_accuracy.pdf'))
     plt.clf()
     # batch testing loss history
@@ -56,5 +56,5 @@ def batches(batch_history, path):
     plt.title('mallin virhe')
     plt.ylabel('virhe')
     plt.xlabel('erä')
-    plt.legend(['train'], loc='upper left')
+    plt.legend(['koulutus'], loc='upper left')
     plt.savefig(os.path.join(path, 'batch_loss.pdf'))
