@@ -3,7 +3,7 @@
 import pandas as pd
 
 def csv():
-    csv = pd.read_csv("http://207.154.192.240/ampparit/ampparit.csv")
+    csv = pd.read_csv("http://207.154.192.240/ampparit/ampparit-final.csv")
     return csv
 
 def with_weekday_and_hour():

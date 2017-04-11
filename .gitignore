@@ -1,2 +1,6 @@
-checkpoints
+checkpoints/
 __pycache__
+*.pdf
+*.csv
+*.png
+tensorboard/
